@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Deck Link Test</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link href="./output.css" rel="stylesheet" />
+    <script src="https://link.deck.co/link-initialize.js"></script>
+  </head>
+
+  <body>
+    <div
+      class="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-100 via-purple-100 to-pink-200"
+    >
+      <h1 class="text-3xl font-bold mb-6">Deck Link Test</h1>
+      <button
+        id="link"
+        class="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+      >
+        Connect Biller
+      </button>
+    </div>
+
+    <script>
+      document.getElementById("link").onclick = async () => {
+        console.log("🔃 Getting link token...");
+
+        const res = await fetch("/api/link-token");
+        const { link_token } = await res.json();
+
+        if (!link_token) {
+          alert("❌ No link token found");
+          return;
+        }
+
+        console.log("✅ link_token received:", link_token);
+
+        const handler = Deck.create({
+          token: link_token,
+          onSuccess: async ({ public_token }) => {
+            console.log("🎉 Successfully linked!", public_token);
+            const res = await fetch("/api/token-exchange", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ public_token }),
+            });
+
+            const { access_token, item_id } = await res.json();
+            console.log("🔓 Access token:", access_token);
+            console.log("🏦 Item ID:", item_id);
+            const billRes = await fetch("/api/bill/submit", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ access_token, item_id }),
+            });
+
+            const bills = await billRes.json();
+            console.log("📄 Bills received:", bills);
+
+            // Optional: show on screen
+            document.body.insertAdjacentHTML(
+              "beforeend",
+              `<pre>${JSON.stringify(bills, null, 2)}</pre>`
+            );
+          },
+          onExit(err, metadata) {
+            console.warn("👋 User exited link flow", err);
+          },
+        });
+
+        handler.open();
+      };
+    </script>
+  </body>
+</html>
